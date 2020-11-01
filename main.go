@@ -2,12 +2,18 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
+
+	"github.com/petershen0307/basic-shell/buildin"
 )
+
+var cmdList []buildin.ICmd = []buildin.ICmd{
+	new(buildin.CD),
+	new(buildin.Exit),
+	new(execInput),
+}
 
 func main() {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -16,33 +22,24 @@ func main() {
 		if scanner.Scan() {
 			keyboardInput := scanner.Text()
 
-			if err := execInput(keyboardInput); err != nil {
+			if err := run(keyboardInput); err != nil && buildin.ErrorBreak != err {
 				fmt.Fprintln(os.Stderr, err)
 			}
 		}
 	}
 }
 
-func execInput(input string) error {
+func run(input string) error {
 	// trim trailing space and new line
 	input = strings.TrimRight(input, "\n ")
 	// separate the command and arguments
 	args := strings.Split(input, " ")
-
-	switch args[0] {
-	case "cd":
-		if len(args) != 2 {
-			return errors.New("path required")
+	var err error
+	for _, cmd := range cmdList {
+		err = cmd.Handle(args)
+		if nil != err {
+			break
 		}
-		return os.Chdir(args[1])
-	case "exit":
-		os.Exit(0)
 	}
-
-	// put the command and argument
-	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	// execute command and return error
-	return cmd.Run()
+	return err
 }
